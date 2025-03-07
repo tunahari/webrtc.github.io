@@ -1,1 +1,1 @@
-Procfile: web: node index.js
+Procfile: web: node server/index.js

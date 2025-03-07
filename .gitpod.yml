@@ -1,0 +1,7 @@
+tasks:
+  - init: npm install
+    command: node server/index.js # Hoặc tên file server của bạn
+    openMode: split-right
+ports:
+  - port: 3000 # Hoặc cổng server của bạn
+    onOpen: open-preview
