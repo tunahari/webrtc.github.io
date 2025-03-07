@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Elass WebRTC Call</title>
 
+    
     <script src="jquery.js"></script>
     <!-- <script src="/socket.io/socket.io.js"></script> -->
     <script src="socket.io.js"></script>
@@ -109,7 +110,7 @@
         <button id="btnCall">Call</button>
         <button id="toggleMic">️ Tắt Mic</button>
         <button id="toggleCam">Tắt Camera</button>
-        <button id="muteButton" onclick="toggleSpeaker()">Tắt Âm Thanh</button>
+        <button id="muteButton" >Bật Âm Thanh</button>
       </div>
     </div>
     <hr />
@@ -119,27 +120,8 @@
       <button id="btnSignUp">Đăng ký</button>
       <h3 id="my-peer">Your Peer ID:</h3>
     </div>
-
     <script src="main.js"></script>
-
-    <!-- <script>
-        // ... (JavaScript kiểm tra kết nối như bạn đã cung cấp) ...
-        window.addEventListener('load', function() {
-            const statusElement = document.getElementById('connectionStatus');
-            
-            setTimeout(function() {
-                if (!socket.connected) {
-                    statusElement.textContent = "❌ Không thể kết nối đến máy chủ Socket.IO (cổng 3000). Vui lòng kiểm tra cài đặt.";
-                    statusElement.style.color = "red";
-                }
-            }, 5000);
-            
-            socket.on('connect', function() {
-                statusElement.textContent = "✅ Đã kết nối đến máy chủ Socket.IO!";
-                statusElement.style.color = "green";
-                document.getElementById('startCallButton').disabled = false;
-            });
-        });
-    </script> -->
   </body>
+<!-- <script src="media.js"></script> -->
 </html>
+
