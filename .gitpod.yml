@@ -1,6 +1,6 @@
 tasks:
-  - init: cd server && npm install
-    command: node index.js
+  # init: cd server && npm install
+  - command: node server/index.js
     openMode: split-right
 ports:
   - port: 3000
