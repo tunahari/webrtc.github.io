@@ -13,10 +13,11 @@ async function getIceServers() {
         return data.v.iceServers;
     } catch (error) {
         console.error("Lỗi lấy ICE servers:", error);
-        return [{ urls: "stun:stun.l.google.com:19302" }];
+        return [{ urls: "stun:stun.l.google.com:19302" }]; // Dự phòng
     }
 }
 
+// Khởi tạo PeerJS với ICE servers từ Xirsys
 getIceServers().then(iceServers => {
     peer = new Peer(undefined, { config: { iceServers } });
     setupPeerEvents();
@@ -28,7 +29,7 @@ function setupPeerEvents() {
         $("#my-peer-id").append(id);
         $("#btnSignUp").click(() => {
             const username = $("#txtUsername").val();
-            socket.emit("NGUOI_DUNG_DANG_KY", { ten: username, peerID: id });
+            socket.emit("NGUOI_DUNG_DANG_KY", { ten: username, peerID: id });//Gửi socket "NGUOI_DUNG_DANG_KY" với username, peerID
         });
     });
 
@@ -41,8 +42,10 @@ function setupPeerEvents() {
     });
 }
 
-$("#div-chat").hide();
+$("#div-chat").hide(); // Cái này để ẩn cái khung chính tố trên giao diện
 
+
+// Nhận socket từ server
 socket.on("List_Nguoi_Dung_Online", (arrUserInfo) => {
     $("#div-chat").show();
     $("#div-signup").hide();
@@ -50,21 +53,24 @@ socket.on("List_Nguoi_Dung_Online", (arrUserInfo) => {
         const { ten, peerID } = user;
         $("#ulUser").append(`<li id="${peerID}">✅ ${ten}</li>`);
     });
-
+// Nhận socket tu server có người dùng mới "Have_New_User"
     socket.on("Have_New_User", (user) => {
         const { ten, peerID } = user;
         $("#ulUser").append(`<li id="${peerID}"> ${ten}</li>`);
     });
-
+// Nhận socket tu server có người dùng "USER_DISCONNECT"
     socket.on("USER_DISCONNECT", (peerID) => {
         $(`#${peerID}`).remove();
     });
 });
-
+// Khi bên kia gửi "DANG_KY_THAT_BAI" thì bên này nhận
 socket.on("DANG_KY_THAT_BAI", () =>
     alert("Username đã tồn tại. Vui lòng nhập username khác!")
 );
 
+/********************************************* Xử lý phím bấm media ***************************************/
+
+// Mở stream từ camera và mic
 async function openStream() {
     const config = { audio: true, video: true };
     try {
@@ -75,7 +81,7 @@ async function openStream() {
         console.error("Lỗi khi truy cập media:", error);
     }
 }
-
+// Phát stream lên thẻ video
 async function playStream(idVideoTag, stream) {
     const video = document.getElementById(idVideoTag);
     if (video.srcObject !== stream) {
@@ -90,6 +96,13 @@ async function playStream(idVideoTag, stream) {
     };
 }
 
+// openStream().then((stream) => playStream("localStream", stream)); //Test strem có hoạt động hay đéo
+/*********************************  Nhận ID từ peerr *************************/
+// const peer = new Peer(); // Khởi tạo peer ở đây sẽ gây lỗi, đã chuyển lên trên
+// peer.on("open", id => $("#my-peer").html("Your Peer ID: " + id)); //Sửa toàn bộ nội dung HTML
+
+
+// Xử lý bật/tắt micro
 function toggleMic() {
     if (localStream) {
         let audioTracks = localStream.getAudioTracks();
@@ -99,6 +112,7 @@ function toggleMic() {
     }
 }
 
+// Xử lý bật/tắt camera
 function toggleCamera() {
     if (localStream) {
         let videoTracks = localStream.getVideoTracks();
@@ -108,13 +122,14 @@ function toggleCamera() {
     }
 }
 
+// Xử lý bật/tắt âm thanh thiết bị
 function toggleMute() {
     let videoElement = document.getElementById('localStream');
     videoElement.muted = !videoElement.muted;
     document.getElementById('muteButton').innerText = videoElement.muted ? 'Bật Âm Thanh' : 'Tắt Âm Thanh';
     console.log(`Audio ${videoElement.muted ? 'muted (Đã Câm )' : 'unmuted (Hết Câm️)'}`);
 }
-
+// Caller click button Call
 $("#btnCall").click(() => {
     const id = $("#remoteID").val();
     openStream().then((stream) => {
@@ -130,13 +145,15 @@ $("#btnCall").click(() => {
         call.on("stream", (remoteStream) => playStream("remoteStream", remoteStream));
     });
 });
-
+// Gán sự kiện cho button
 document.getElementById('toggleMic').addEventListener('click', toggleMic);
 document.getElementById('toggleCam').addEventListener('click', toggleCamera);
 document.getElementById('muteButton').addEventListener('click', toggleMute);
 
+// Khởi động media khi load trang
 window.onload = openStream;
 
+// Xử lý ấn vào tên để calling to úer
 $("#ulUser").on("click", "li", function () {
     const id = $(this).attr("id");
     var tenhienthi = document.getElementById(id).textContent;
@@ -160,6 +177,7 @@ $("#ulUser").on("click", "li", function () {
     });
 });
 
+//Socccket check
 socket.on("connect", () => {
     console.log("Đã kết nối với server!");
 });
