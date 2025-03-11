@@ -1,3 +1,4 @@
+
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
@@ -12,10 +13,10 @@ const io = require("socket.io")(http, {
   },
 });
 
-app.use(express.static(path.join(__dirname, '../'))); // Phục vụ các file tĩnh từ thư mục gốc
+app.use(express.static(path.join(__dirname, '../public'))); // Phục vụ các file tĩnh từ thư mục gốc
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html')); // Phục vụ file index.html
+  res.sendFile(path.join(__dirname, '../public/index.html')); // Phục vụ file index.html
 });
 
 // Khởi động server HTTP trên cổng 3000
@@ -56,28 +57,28 @@ io.on("connection", (socket) => {
 const https = require("https");
 //Cấu hình các thông số cho yêu cầu HTTPS
 app.get("/getIceServers", (req, res) => {
-    let options = {
-        host: "global.xirsys.net",
-        path: "/_turn/MyFirstApp",
-        method: "PUT",
-        headers: {
-            "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
-            "Content-Type": "application/json"
-        }
-    };
-//Tạo một yêu cầu HTTPS đến Xirsys API với các options đã cấu hình.
-    let httpreq = https.request(options, function (httpres) {
-        let str = "";
-        httpres.on("data", (data) => { str += data; });
-        httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
-        httpres.on("end", () => {
-            res.send(str);  // Trả về danh sách ICE servers cho client
-        });
-    });
+  const turnIp = process.env.TURN_IP || 'turnserver'; // Sử dụng tên service
+  const turnUsername = process.env.TURN_USERNAME || 'elassturn';
+  const turnPassword = process.env.TURN_PASSWORD || 'elassturn';
 
-    httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
-    httpreq.end();
+  res.send({
+    "v": {
+      "iceServers": [
+        {
+          "urls": `turn:${turnIp}:3478`,
+          "username": turnUsername,
+          "credential": turnPassword
+        },
+        {
+          "urls": `turn:${turnIp}:3478?transport=tcp`,
+          "username": turnUsername,
+          "credential": turnPassword
+        },
+        {
+          "urls": `stun:${turnIp}:3478`
+        }
+      ]
+    }
+  });
 });
 
-
-// console.log(`Server Socket.IO đang chạy trên cổng ${port}`);

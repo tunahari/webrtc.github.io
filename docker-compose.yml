@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - turnserver
+    volumes:
+      - ./public:/app/public #Mount volume public
+      - ./server:/app #Mount volume server
+    networks:
+      - webrtc-network
+    environment:
+      - TURN_IP=turnserver
+      - TURN_USERNAME=elassturn
+      - TURN_PASSWORD=elassturn
+
+  turnserver:
+    image: coturn/coturn:latest
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49152-65535:49152-65535/udp"
+    volumes:
+      - ./turnserver.conf:/etc/turnserver.conf
+    command: "turnserver -c /etc/turnserver.conf"
+    networks:
+      - webrtc-network
+
+networks:
+  webrtc-network:
+    driver: bridge
