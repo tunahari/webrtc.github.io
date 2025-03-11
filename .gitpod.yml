@@ -1,11 +1,7 @@
 tasks:
-  - name: Build and start services
-    init: |
-        npm install -g docker-compose
-        docker-compose build
-    command: docker-compose up -d
-    ports:
-      - 3000
-      - 3478
-      - 49152-65535
+  # init: cd server && npm install
+  - command: node server/index.js
     openMode: split-right
+ports:
+  - port: 3000
+    onOpen: open-preview

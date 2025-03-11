@@ -43,7 +43,7 @@
         margin: 20px 0;
       }
       video {
-        width: 45%;
+        width: 26%;
         max-width: 500px;
         margin: 10px;
         border: 3px solid #333;
@@ -78,10 +78,15 @@
       }
 
       /* CSS cho danh sách người dùng online */
-      #ulUser {
-        width: 60%;
-        margin: 0 auto;
+      .list-users-ol {
+        text-align: left;
+        font-size: 22px;
+        padding: 5px;
+        padding-left: 10%;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
       }
+      
       #ulUser li {
         text-align: left;
         font-size: 22px;
@@ -95,7 +100,7 @@
 
       /* CSS cho các input */
       #remoteID,
-      #txtUsername {
+      #txtUsername,#txtRoomId {
         width: 60%;
         height: auto;
         padding: 10px 5px;
@@ -127,48 +132,53 @@
         margin-left: auto;
         margin-right: auto;
       }
+      #room-info{
+        font-weight: bold;
+        margin-top: 10px;
+        font-size: 16px;
+      }
     </style>
   </head>
 
   <body>
-    <div class="container">
-      <div id="div-chat">
-        <h1>WebRTC Video Call</h1>
-        <!-- <div class="status">Đang kết nối đến máy chủ...</div> -->
-        <h3 id="my-peer-id">Your Peer ID:</h3>
-        <h2>User Online🔹</h2>
-        <p>Click vào User để thực hiện cuộc gọi đến User đc click</p>
-        <ul id="ulUser"></ul>
-        
 
-        <div class="video-container">
-          <video id="localStream" autoplay playsinline muted></video>
-          <video id="remoteStream" autoplay playsinline></video>
-        </div>
-        <div>
-          <input
-            type="text"
-            id="remoteID"
-            placeholder="Nhập ID của người muốn gọi"
-          />
-        </div>
-        <div class="controls">
-          <button id="btnCall">Call</button>
-          <button id="toggleMic">️ Tắt Mic</button>
-          <button id="toggleCam">Tắt Camera</button>
-          <button id="muteButton">Bật Âm Thanh</button>
-          <button id="btnEndCall">Kết thúc cuộc gọi</button>
-        </div>
-      </div>
-      <hr />
-      <div class="status">Đang kết nối đến máy chủ...</div>
-      <div id="div-signup">
-        <h3>Đăng ký Username</h3>
-        <input type="text" id="txtUsername" placeholder="Nhập username" />
-        <button id="btnSignUp">Đăng ký</button>
-        <h3 id="my-peer">Your Peer ID:</h3>
-      </div>
+    <div id="div-signup">
+        <h3>Đăng ký</h3>
+        <input type="text" id="txtUsername" placeholder="Nhập username">
+        <input type="text" id="txtRoomId" placeholder="Nhập RoomID">
+        <br>
+        <button id="btnJoinRoom">Tham gia phòng</button>
+        <hr>
+        <div class="status">Đang kết nối đến server...</div>
     </div>
+
+    <div id="div-chat">
+        <div id="my-peer">Your ID:</div>
+        <hr>
+        <div id="user-info"></div>
+        <div id="room-info"></div>
+        
+       <div class="list-users-ol ">Danh sách người dùng online:
+       <br>
+        <ul id="ulUser"></ul>
+       </div>
+        
+       
+        <input type="text" id="remoteID" placeholder="Nhập id người dùng khác">
+        <br>
+        <button id="btnCall">Gọi</button>
+        <button id="toggleMic">Tắt Mic</button>
+        <button id="toggleCam">Tắt Camera</button>
+        <button id="muteButton">Tắt Âm Thanh</button>
+        <br>
+        <button id="btnEndCall">Kết thúc cuộc gọi</button>
+
+        <div id="remoteStreams">
+            <video id="localStream" autoplay playsinline></video>
+        </div>
+  
+    </div>
+
     <script src="main.js"></script>
-  </body>
+</body>
 </html>
