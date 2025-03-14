@@ -4,52 +4,52 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Elass WebRTC Call</title>
-<link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
     <script src="jquery.js"></script>
     <script src="socket.io.js"></script>
     <script src="peerjs.min.js"></script>
-
   </head>
 
   <body>
-
     <div id="div-signup">
-        <h3>Đăng ký</h3>
-        <input type="text" id="txtUsername" placeholder="Nhập username">
-        <input type="text" id="txtRoomId" placeholder="Nhập RoomID">
-        <br>
-        <button id="btnJoinRoom">Tham gia phòng</button>
-        <hr>
-        <div class="status">Đang kết nối đến server...</div>
+      <h3>Đăng ký</h3>
+      <input type="text" id="txtUsername" placeholder="Nhập username" />
+      <input type="text" id="txtRoomId" placeholder="Nhập RoomID" />
+      <br />
+      <button id="btnJoinRoom">Tham gia phòng</button><br />
+      <br />
+      <hr />
+      <br />
+      <div class="status">Đang kết nối đến server...</div>
     </div>
 
     <div id="div-chat">
-        <div id="my-peer">Your ID:</div>
-        <hr>
-        <div id="user-info"></div>
-        <div id="room-info"></div>
-        
-       <div class="list-users-ol ">Danh sách người dùng online:
-       <br>
-        <ul id="ulUser"></ul>
-       </div>
-        
-       
-        <input type="text" id="remoteID" placeholder="Nhập id người dùng khác">
-        <br>
-        <button id="btnCall">Gọi</button>
-        <button id="toggleMic">Tắt Mic</button>
-        <button id="toggleCam">Tắt Camera</button>
-        <button id="muteButton">Tắt Âm Thanh</button>
-        <br>
-        <button id="btnEndCall">Kết thúc cuộc gọi</button>
+      <div id="my-peer">Your ID: </div>
+      <hr />
+      <div id="user-info"></div>
+      <div id="room-info"></div>
 
-        <div id="remoteStreams">
-            <video id="localStream" autoplay playsinline></video>
-        </div>
-  
+      <div class="list-users-ol">
+        Danh sách người dùng online:
+        <br />
+        <ul id="ulUser"></ul>
+      </div>
+
+      <input type="text" id="remoteID" placeholder="Nhập id người dùng khác" />
+
+      <button id="btnCall">Gọi</button>
+      <br />
+      <button id="btnEndCall">Kết thúc cuộc gọi</button>
+      <br />
+
+      <div id="remoteStreams">
+        <video id="localStream" autoplay playsinline></video>
+      </div>
+      <button id="toggleMic">Tắt Mic</button>
+      <button id="toggleCam">Tắt Camera</button>
+      <button id="muteButton">Tắt Âm Thanh</button>
     </div>
 
     <script src="main.js"></script>
-</body>
+  </body>
 </html>

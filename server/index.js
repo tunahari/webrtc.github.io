@@ -138,28 +138,46 @@ io.on("connection", (socket) => {
 });
 
 const https = require("https");
-app.get("/getIceServers", (req, res) => {
-    let options = {
-        host: "global.xirsys.net",
-        path: "/_turn/MyFirstApp",
-        method: "PUT",
-        headers: {
-            "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
-            "Content-Type": "application/json"
-        }
-    };
+// app.get("/getIceServers", (_req, res) => {
+//     let options = {
+//         host: "global.xirsys.net",
+//         path: "/_turn/MyFirstApp",
+//         method: "PUT",
+//         headers: {
+//             "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
+//             "Content-Type": "application/json"
+//         }
+//     };
 
-    let httpreq = https.request(options, function (httpres) {
-        let str = "";
-        httpres.on("data", (data) => { str += data; });
-        httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
-        httpres.on("end", () => {
-            res.send(str);
-        });
-    });
+//     let httpreq = https.request(options, function (httpres) {
+//         let str = "";
+//         httpres.on("data", (data) => { str += data; });
+//         httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
+//         httpres.on("end", () => {
+//             res.send(str);
+//         });
+//     });
 
-    httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
-    httpreq.end();
-});
+//     httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
+//     httpreq.end();
+// });
 
 //ngon rồi
+// ... phần khác của index.js ...
+
+const externalIp = process.env.EXTERNAL_IP;
+
+app.get("/getIceServers", (req, res) => {
+  res.send(JSON.stringify({
+    v: {
+      iceServers: [
+        { urls: `turn:${externalIp}:3478?transport=udp` },
+        { urls: `turn:${externalIp}:3478?transport=tcp` },
+        { urls: `turns:${externalIp}:5349?transport=tcp` },
+        { urls: `stun:${externalIp}:3478` }
+      ]
+    }
+  }));
+});
+
+

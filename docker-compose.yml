@@ -1,0 +1,40 @@
+# version: '3.8'
+
+# services:
+#   app:
+#     build: .  # Chỉ định thư mục hiện tại làm context build
+#     container_name: eclasswebrtc-app-1
+#     ports:
+#       - "3000:3000" # Map port 3000 bên trong container ra port 3000 bên ngoài
+#     volumes:
+#       - .:/app   # Gắn thư mục hiện tại vào thư mục /app bên trong container
+#       - /app/node_modules # Bỏ qua thư mục node_modules
+#     restart: always # tự động restart nếu container bị lỗi
+#     command: node server/index.js
+
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: eclasswebrtc-app-1
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: always
+    depends_on:
+      - coturn
+    command: node server/index.js
+
+  coturn:
+    image: coturn/coturn
+    container_name: eclasswebrtc-coturn
+    ports:
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "8080:8080" # Port HTTP cho quản lý (tùy chọn)
+    volumes:
+      - ./coturn-config:/etc/coturn
+    restart: always
