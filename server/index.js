@@ -12,10 +12,10 @@ const io = require("socket.io")(http, {
 });
 
 app.use(cors());
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/join', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 http.listen(port, () => {
@@ -72,6 +72,7 @@ io.on("connection", (socket) => {
 
         if (isUsernameTaken) {
             socket.emit("JOIN_ROOM_FAILED", "Tên đăng nhập đã tồn tại trong phòng!");
+            
             return;
         }
         // Join the room
@@ -149,6 +150,46 @@ io.on("connection", (socket) => {
         }
         callback(check);
     });
+
+    socket.on("CHECK_ROOM_EXIST", (roomId, callback) => {
+        const roomExists = userRooms.hasOwnProperty(roomId) && userRooms[roomId].users.length > 0;
+        callback(roomExists);
+      });
+
+    socket.on("CREATE_ROOM", (roomId, callback) => {
+        if (!userRooms[roomId]) {
+            userRooms[roomId] = { users: [] };
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+    socket.on("REQUEST_SHARE_SCREEN_STATUS", (roomId) => {
+        if (userRooms[roomId]) {
+          userRooms[roomId].users.forEach(user => {
+            // Giả sử bạn lưu trạng thái chia sẻ màn hình trong userRooms (cần thêm trường isSharing)
+            const isSharing = user.isSharing || false; // Mặc định false nếu chưa có
+            socket.emit("UPDATE_SHARE_SCREEN", { peerID: user.peerID, isSharing });
+          });
+        }
+      });
+      
+      // Cập nhật khi SHARE_SCREEN được gọi
+      socket.on("SHARE_SCREEN", ({ peerID, isSharing }) => {
+        let roomId = null;
+        for (const room in userRooms) {
+          const user = userRooms[room].users.find(u => u.peerID === peerID);
+          if (user) {
+            roomId = room;
+            user.isSharing = isSharing; // Lưu trạng thái chia sẻ
+            break;
+          }
+        }
+        if (roomId) {
+          io.to(roomId).emit("UPDATE_SHARE_SCREEN", { peerID, isSharing });
+        }
+      });
+    
     // Relay ICE candidates and SDPs (offers/answers)
     socket.on("RELAY_ICE", (data) => {
         const { peerId, candidate } = data;
@@ -170,28 +211,28 @@ io.on("connection", (socket) => {
       });
       
 });
+/** Turn Xisys */
+// const https = require("https");
+// app.get("/getIceServers", (req, res) => {
+//     let options = {
+//         host: "global.xirsys.net",
+//         path: "/_turn/MyFirstApp",
+//         method: "PUT",
+//         headers: {
+//             "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
+//             "Content-Type": "application/json"
+//         }
+//     };
 
-const https = require("https");
-app.get("/getIceServers", (req, res) => {
-    let options = {
-        host: "global.xirsys.net",
-        path: "/_turn/MyFirstApp",
-        method: "PUT",
-        headers: {
-            "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
-            "Content-Type": "application/json"
-        }
-    };
+//     let httpreq = https.request(options, function (httpres) {
+//         let str = "";
+//         httpres.on("data", (data) => { str += data; });
+//         httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
+//         httpres.on("end", () => {
+//             res.send(str);
+//         });
+//     });
 
-    let httpreq = https.request(options, function (httpres) {
-        let str = "";
-        httpres.on("data", (data) => { str += data; });
-        httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
-        httpres.on("end", () => {
-            res.send(str);
-        });
-    });
-
-    httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
-    httpreq.end();
-});
+//     httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
+//     httpreq.end();
+// });

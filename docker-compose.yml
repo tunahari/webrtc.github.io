@@ -1,0 +1,31 @@
+services:
+  coturn:
+    build:
+      context: ./coturn
+      dockerfile: Dockerfile
+    container_name: coturn
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+    networks:
+      - webrtc-network
+    volumes:
+      - ./coturn/turnserver.log:/var/log/turnserver.log
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server
+    ports:
+      - "3000:3000"
+    networks:
+      - webrtc-network
+    depends_on:
+      - coturn
+    restart: unless-stopped
+
+networks:
+  webrtc-network:
+    driver: bridge

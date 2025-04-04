@@ -9,16 +9,42 @@ const peers = {}; // { peerId: RTCPeerConnection, ... }
 const statusElement = document.querySelector(".status");
 let screenStream = null;
 
+/* Lấy ICE servers trên server turn của xisys */
+// async function getIceServers() {
+//   try {
+//     const response = await fetch("http://localhost:3000/getIceServers"); // comment khi deploy
+//     // const response = await fetch("https://3000-tunahari-webrtcgithubio-5y4u2ynx3zf.ws-us118.gitpod.io/getIceServers"); // comment khi chạy local
+//     const data = await response.json();
+//     return data.v.iceServers;
+//   } catch (error) {
+//     console.error("Lỗi lấy ICE servers:", error);
+//     return [{ urls: "stun:stun.l.google.com:19302" }]; // Hệ thống STUN Dự phòng
+//   }
+// }
 
+/* Lấy ICE servers trên server tự turn */
 async function getIceServers() {
   try {
-    const response = await fetch("http://localhost:3000/getIceServers"); // comment khi deploy
-    // const response = await fetch("https://3000-tunahari-webrtcgithubio-5y4u2ynx3zf.ws-us118.gitpod.io/getIceServers"); // comment khi chạy local
-    const data = await response.json();
-    return data.v.iceServers;
+    console.log("Bắt đầu lấy ICE servers...");
+
+    const iceServers = [
+      {
+        urls: "stun:172.18.254.133:3478",
+      },
+      {
+        urls: "turn:172.18.254.133:3478",
+        username: "turnuser",
+        credential: "turnpassword",
+      },
+    ];
+
+    console.log("ICE servers được lấy thành công:", iceServers);
+    return iceServers;
   } catch (error) {
-    console.error("Lỗi lấy ICE servers:", error);
-    return [{ urls: "stun:stun.l.google.com:19302" }]; // Hệ thống STUN Dự phòng
+    console.error("Lỗi khi lấy ICE servers:", error);
+    const fallbackIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+    console.log("Trả về ICE servers dự phòng:", fallbackIceServers);
+    return fallbackIceServers;
   }
 }
 
@@ -32,80 +58,132 @@ function setupPeerEvents() {
     $("#my-peer").append(id);
     $("#my-peer-id").append(id);
 
-    // Move the JOIN_ROOM event listener inside peer.on("open")
+    // Sự kiện click cho nút tham gia phòng
     $("#btnJoinRoom").click(() => {
       const username = $("#txtUsername").val();
       const roomId = $("#txtRoomId").val();
-      if (!username || !roomId) {
-        return alert("Vui lòng nhập đầy đủ thông tin!");
-      }
-      //kiểm tra dữ liệu trước khi gửi
-      if (username.trim().length == 0 || roomId.trim().length == 0) {
+
+      // Kiểm tra dữ liệu đầu vào
+      if (!username || !username.trim() || !roomId || !roomId.trim()) {
         return alert("Vui lòng nhập đầy đủ thông tin!");
       }
 
-      socket.emit("JOIN_ROOM", { username, peerID: id, roomId });
+      // Kiểm tra nếu người dùng đã ở trong phòng
+      if (currentRoomId) {
+        return alert(
+          "Bạn đang ở trong một phòng. Vui lòng rời phòng hiện tại trước khi tham gia phòng mới!"
+        );
+      }
+
+      // Kiểm tra xem peer.id đã sẵn sàng chưa
+      if (!peer.id) {
+        return alert(
+          "Đang kết nối tới server PeerJS, vui lòng thử lại sau giây lát!"
+        );
+      }
+
+      // Kiểm tra xem phòng đã tồn tại chưa
+      socket.emit("CHECK_ROOM_EXIST", roomId, (roomExists) => {
+        if (roomExists) {
+          // Phòng đã tồn tại, tham gia phòng
+          socket.emit("JOIN_ROOM", { username, peerID: peer.id, roomId });
+        } else {
+          // Phòng chưa tồn tại, hỏi người dùng có muốn tạo phòng mới không
+          if (
+            confirm("Phòng này không tồn tại. Bạn có muốn tạo phòng mới không?")
+          ) {
+            // Tạo phòng mới
+            socket.emit("CREATE_ROOM", roomId, (success) => {
+              if (success) {
+                // Sau khi tạo phòng thành công, tham gia phòng
+                socket.emit("JOIN_ROOM", { username, peerID: peer.id, roomId });
+              } else {
+                alert(
+                  "Lỗi khi tạo phòng. Phòng đã được tạo bởi người khác. Vui lòng thử lại."
+                );
+              }
+            });
+          }
+        }
+      });
     });
   });
 
   peer.on("call", (call) => {
+    
     if (peers[call.peer]) {
       console.log("Call already exists with", call.peer);
       call.close();
       return;
     }
-  
-    openStream().then((stream) => {
-      call.answer(stream); // Trả lời cuộc gọi bằng localStream
-      playStream("localStream", stream);
-  
-      // Khi nhận stream từ người gọi, hiển thị lên UI
-      call.on("stream", (remoteStream) => {
-        createRemoteVideo(call.peer); // Tạo video trước
-        playStream(`remoteStream-${call.peer}`, remoteStream);
-       
+
+    const answerStream =
+      isSharingScreen && screenStream ? screenStream : localStream;
+
+    if (!answerStream) {
+      openStream()
+        .then((stream) => {
+          localStream = stream;
+          call.answer(stream);
+          playStream("localStream", stream);
+
+          // Lắng nghe ICE candidate khi trả lời
+          call.on("icecandidate", (event) => {
+            if (event.candidate) {
+              console.log("Gửi ICE candidate tới:", call.peer, event.candidate);
+              socket.emit("RELAY_ICE", {
+                peerId: call.peer,
+                candidate: event.candidate,
+              });
+            }
+          });
+
+          call.on("stream", (remoteStream) => {
+            createRemoteVideo(call.peer);
+            playStream(`remoteStream-${call.peer}`, remoteStream);
+          });
+
+          call.on("close", () => {
+            removeRemoteVideo(call.peer);
+            delete peers[call.peer];
+          });
+
+          peers[call.peer] = call;
+        })
+        .catch((error) => {
+          console.error("Lỗi khi trả lời cuộc gọi:", error);
+        });
+    } else {
+      call.answer(answerStream);
+      playStream("localStream", answerStream);
+
+      // Lắng nghe ICE candidate khi trả lời
+      call.on("icecandidate", (event) => {
+        if (event.candidate) {
+          console.log("Gửi ICE candidate tới:", call.peer, event.candidate);
+          socket.emit("RELAY_ICE", {
+            peerId: call.peer,
+            candidate: event.candidate,
+          });
+        }
       });
-  
+
+      call.on("stream", (remoteStream) => {
+        createRemoteVideo(call.peer);
+        playStream(`remoteStream-${call.peer}`, remoteStream);
+      });
+
       call.on("close", () => {
         removeRemoteVideo(call.peer);
         delete peers[call.peer];
       });
-  
-      // Lưu vào danh sách peers
+
       peers[call.peer] = call;
-    }).catch((error) => {
-      console.error("Lỗi khi trả lời cuộc gọi:", error);
-    });
+    }
   });
-  
-  
 }
 
 $("#div-chat").hide(); // Ẩn div-chat ở đầu
-
-// Handle successful room join
-socket.on("ROOM_USER_LIST", (data) => {
-  const { users, currentPeerID } = data;
-  const username = $("#txtUsername").val(); // Lấy tên người dùng từ input
-  const roomId = $("#txtRoomId").val(); //lấy room id
-
-  currentRoomId = roomId; // Lưu RoomID hiện tại
-  userRoomsClient[roomId] = users;
-
-  $("#div-chat").show();
-  $("#div-signup").hide();
-
-  // Hiển thị thông tin phòng và người dùng
-  $("#room-info").text(`Đây là phòng có id là: ${roomId}`);
-  $("#user-info").text(`Chào bạn: ${username}`);
-
-  $("#ulUser").empty();
-  users.forEach((user) => {
-    if (user.peerID != currentPeerID) {
-      addNewUser(user);
-    }
-  });
-});
 
 socket.on("NEW_USER_JOINED", (user) => {
   if (currentRoomId) {
@@ -139,8 +217,137 @@ socket.on("USER_LEFT_ROOM", (peerId) => {
   }
 });
 
+socket.on("connect", () => {
+  console.log("Đã kết nối với server!");
+  statusElement.textContent = "Kết nối đến máy chủ thành công!";
+  statusElement.style.color = "blue";
+});
+
+socket.on("disconnect", () => {
+  console.log("Mất kết nối với server!");
+  statusElement.textContent = "Mất kết nối với server...";
+  statusElement.style.color = "red";
+});
+
+socket.on("ROOM_USER_LIST", (data) => {
+  const { users, currentPeerID } = data;
+  const username = $("#txtUsername").val();
+  const roomId = $("#txtRoomId").val();
+
+  currentRoomId = roomId;
+  userRoomsClient[roomId] = users;
+
+  $("#div-chat").show();
+  $("#div-signup").hide();
+
+  $("#room-info").text(`Đây là phòng có id là: ${roomId}`);
+  $("#user-info").text(`Chào bạn: ${username}`);
+
+  $("#ulUser").empty();
+  users.forEach((user) => {
+    if (user.peerID != currentPeerID) {
+      addNewUser(user);
+    }
+  });
+
+  // Yêu cầu server gửi trạng thái chia sẻ màn hình của tất cả người dùng
+  socket.emit("REQUEST_SHARE_SCREEN_STATUS", roomId);
+
+  // Tạo đường link để chia sẻ
+  const serverUrl = "http://localhost:3000";
+  const inviteLink = `${serverUrl}/join?roomId=${roomId}&username=${randomString(
+    8
+  )}`;
+
+  // Xóa invite-link-container cũ nếu tồn tại
+  const oldLinkContainer = document.getElementById("invite-link-container");
+  if (oldLinkContainer) {
+    oldLinkContainer.remove();
+  }
+
+  // Tạo mới invite-link-container
+  const linkContainer = document.createElement("div");
+  linkContainer.id = "invite-link-container";
+  linkContainer.innerHTML = `
+    <p>Chia sẻ đường link để mời người khác tham gia phòng:</p>
+    <input type="text" value="${inviteLink}" readonly style="width: 100%; padding: 5px; margin-bottom: 5px;">
+    <button onclick="copyInviteLink()" style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Sao chép</button>
+  `;
+  document.getElementById("div-chat").prepend(linkContainer);
+});
+
 socket.on("JOIN_ROOM_FAILED", (reason) => {
   alert(reason);
+  window.location.href = "./";
+  // Hiển thị lại giao diện đăng ký nếu tham gia thất bại
+  $("#div-chat").hide();
+  $("#div-signup").show();
+  // Xóa các giá trị trong form
+  $("#txtRoomId").val("");
+  $("#txtUsername").val("");
+});
+
+// Listen for ICE candidates and SDPs
+socket.on("ICE_CANDIDATE", (candidate) => {
+  let peerId = "";
+  for (const key in peers) {
+    if (peers[key].peerConnection) {
+      peerId = key;
+    }
+  }
+  if (peers[peerId] && candidate) {
+    peers[peerId].peerConnection.addIceCandidate(candidate).catch((error) => {
+      console.error("Lỗi thêm ICE Candidate:", error);
+    });
+  }
+});
+
+socket.on("SESSION_DESCRIPTION", ({ sdp, peerId }) => {
+  if (peers[peerId]) {
+    peers[peerId].peerConnection.setRemoteDescription(
+      new RTCSessionDescription(sdp)
+    );
+  }
+});
+
+socket.on("UPDATE_SHARE_SCREEN", ({ peerID, isSharing }) => {
+  const videoElement = document.getElementById(`remoteStream-${peerID}`);
+  if (videoElement) {
+    videoElement.style.border = isSharing ? "5px solid red" : "none";
+  }
+});
+
+socket.on("UPDATE_CAMERA_STATUS", ({ peerID, isEnabled }) => {
+  const videoElement = document.getElementById(`remoteStream-${peerID}`);
+  if (videoElement) {
+    if (!isEnabled) {
+      // Khi camera tắt, không cần làm tối, vì stream đã được thay bằng canvas trống
+      videoElement.style.filter = "none"; // Xóa hiệu ứng làm tối
+    } else {
+      videoElement.style.filter = "brightness(1)"; // Khôi phục giao diện bình thường
+    }
+  }
+});
+
+socket.on("NEW_MESSAGE", ({ username, message, time }) => {
+  console.log("📥 New message received:", { username, message, time });
+
+  const chatBox = document.getElementById("chat-box");
+  const isSelf = username === $("#txtUsername").val();
+
+  const messageHTML = `
+    <div class="message ${isSelf ? "right" : "left"}">
+      <img src="https://cellphones.com.vn/sforum/wp-content/uploads/2024/02/avatar-anh-meo-cute-13.jpg" class="avatar">
+      <div class="message-content">
+        <p class="message-username">${username}</p>
+       <p class="message-time">${time}</p>
+      
+        <p class="message-text">${message}</p>
+      </div>
+    </div>`;
+
+  chatBox.innerHTML += messageHTML;
+  chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 /********************************************* Xử lý phím bấm media ***************************************/
@@ -158,7 +365,9 @@ async function openStream() {
 async function playStream(idVideoTag, stream) {
   let video = document.getElementById(idVideoTag);
   if (!video) {
-    console.warn(`Không tìm thấy phần tử video với id: ${idVideoTag}. Tạo mới...`);
+    console.warn(
+      `Không tìm thấy phần tử video với id: ${idVideoTag}. Tạo mới...`
+    );
     if (idVideoTag === "localStream") {
       // Tạo lại phần tử video cục bộ
       video = document.createElement("video");
@@ -195,7 +404,6 @@ async function playStream(idVideoTag, stream) {
   };
 }
 
-// Xử lý sự kiện click cho #btnCall
 // Xử lý sự kiện click cho #btnCall
 $("#btnCall").click(function () {
   const remotePeerId = $("#remoteID").val();
@@ -277,19 +485,19 @@ let isCameraOn = true; // Biến để theo dõi trạng thái camera
 
 async function toggleCamera() {
   if (!localStream) return;
-
-  isCameraOn = !isCameraOn; // Đảo ngược trạng thái camera
-
+  isCameraOn = !isCameraOn; // Đảo ngược trạng thái ca
   if (isCameraOn) {
     // Bật camera
     try {
       // Lấy stream mới từ camera
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
       const newVideoTrack = newStream.getVideoTracks()[0];
 
       // Xóa track trống (canvas) khỏi localStream
       const currentVideoTracks = localStream.getVideoTracks();
-      currentVideoTracks.forEach(track => {
+      currentVideoTracks.forEach((track) => {
         localStream.removeTrack(track);
         track.stop(); // Dừng track trống
       });
@@ -301,8 +509,10 @@ async function toggleCamera() {
       playStream("localStream", localStream);
 
       // Cập nhật track cho tất cả các peer
-      Object.values(peers).forEach(call => {
-        const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+      Object.values(peers).forEach((call) => {
+        const sender = call.peerConnection
+          .getSenders()
+          .find((s) => s.track && s.track.kind === "video");
         if (sender) {
           sender.replaceTrack(newVideoTrack);
         }
@@ -322,12 +532,11 @@ async function toggleCamera() {
     // Tắt camera
     // Dừng track video hiện tại
     const videoTracks = localStream.getVideoTracks();
-    videoTracks.forEach(track => {
+    videoTracks.forEach((track) => {
       localStream.removeTrack(track);
       track.stop();
     });
     console.log("Camera tắt");
-    
 
     // Tạo một canvas trống để thay thế
     const canvas = document.createElement("canvas");
@@ -348,22 +557,19 @@ async function toggleCamera() {
     playStream("localStream", localStream);
 
     // Cập nhật track cho tất cả các peer
-    Object.values(peers).forEach(call => {
-      const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+    Object.values(peers).forEach((call) => {
+      const sender = call.peerConnection
+        .getSenders()
+        .find((s) => s.track && s.track.kind === "video");
       if (sender) {
         sender.replaceTrack(blankVideoTrack);
       }
     });
-
     // Cập nhật nút và gửi sự kiện
     document.getElementById("toggleCam").innerText = "Bật Camera";
     socket.emit("TOGGLE_CAMERA", { peerID: peer.id, isEnabled: false });
   }
 }
-
-
-
-
 
 function toggleMute() {
   let videoElement = document.getElementById("localStream");
@@ -381,7 +587,8 @@ document.getElementById("toggleCam").addEventListener("click", toggleCamera);
 document.getElementById("muteButton").addEventListener("click", toggleMute);
 
 // window.onload = openStream;
-//--------------------------------------------------------------------------------------------------------
+
+/***************************************************************************************************************/
 
 function addNewUser(user) {
   const { ten, peerID } = user;
@@ -414,98 +621,49 @@ $("#ulUser").on("click", "li", function () {
   }
 });
 
-socket.on("connect", () => {
-  console.log("Đã kết nối với server!");
-  statusElement.textContent = "Kết nối đến máy chủ thành công!";
-  statusElement.style.color = "blue";
-});
-
-socket.on("disconnect", () => {
-  console.log("Mất kết nối với server!");
-  statusElement.textContent = "Mất kết nối với server...";
-  statusElement.style.color = "red";
-});
-
-// Hàm kết thúc cuộc gọi
+// Hàm kết thúc cuộc gọi (rời phòng)
 function endCall(peerId) {
   if (peers[peerId]) {
     peers[peerId].close();
     delete peers[peerId];
   }
-
   removeRemoteVideo(peerId);
 }
+
 // // Sự kiện click cho nút kết thúc cuộc gọi, đóng tất cả các kết nối WebRTC
 // $("#btnEndCall").click(() => {
-//   for (let peerId in peers) 
+//   for (let peerId in peers)
 //     endCall(peerId);
 //   }
 // });
 
-
-socket.on("ROOM_USER_LIST", (data) => {
-  const { users, currentPeerID } = data;
-  const username = $("#txtUsername").val(); // Lấy tên người dùng từ input
-
-  const roomId = $("#txtRoomId").val(); // Lấy room id
-
-  currentRoomId = roomId; // Lưu RoomID hiện tại
-  userRoomsClient[roomId] = users;
-
-  $("#div-chat").show();
-  $("#div-signup").hide();
-
-  // Hiển thị thông tin phòng và người dùng
-  $("#room-info").text(`Đây là phòng có id là: ${roomId}`);
-  $("#user-info").text(`Chào bạn: ${username}`);
-
-  $("#ulUser").empty();
-  users.forEach((user) => {
-    if (user.peerID != currentPeerID) {
-      addNewUser(user);
-    }
-  });
-
-  // Tạo đường link để chia sẻ, sử dụng domain của server
-  const serverUrl = "http://localhost:3000"; // Domain của server Socket.IO
-  const inviteLink = `${serverUrl}/join?roomId=${roomId}&username=${randomString(8)}`;
-  
-  // Hiển thị đường link trên giao diện
-  const linkContainer = document.createElement("div");
-  linkContainer.id = "invite-link-container";
-  linkContainer.innerHTML = `
-    <p>Chia sẻ đường link để mời người khác tham gia phòng:</p>
-    <input type="text" value="${inviteLink}" readonly style="width: 100%; padding: 5px; margin-bottom: 5px;">
-    <button onclick="copyInviteLink()" style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Sao chép</button>
-  `;
-  document.getElementById("div-chat").prepend(linkContainer);
-});
+// Hàm xóa phần tử khi có người dùng rời phòng
+function removeInviteLink() {
+  const container = document.getElementById("invite-link-container");
+  if (container) {
+    container.remove(); // Xóa phần tử
+  }
+}
+//Hàm coppy link
 function copyInviteLink() {
   const linkInput = document.querySelector("#invite-link-container input");
   linkInput.select();
   document.execCommand("copy");
   alert("Đã sao chép đường link!");
 }
-socket.on("JOIN_ROOM_FAILED", (reason) => {
-  alert(reason);
-  // Hiển thị lại giao diện đăng ký nếu tham gia thất bại
-  $("#div-chat").hide();
-  $("#div-signup").show();
-  // Xóa các giá trị trong form
-  $("#txtRoomId").val("");
-  $("#txtUsername").val("");
-});
 
-
+//Hàm random ký tự ngẫu nhiên A-Z a-z 0-9
 function randomString(length) {
-  let result = '';
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = "";
+  const characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return result;
 }
+
 // Hàm đọc tham số từ URL
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -545,7 +703,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
-
 
 // Sự kiện click cho nút kết thúc cuộc gọi, Rời khỏi phòng
 $("#btnEndCall").click(() => {
@@ -587,13 +744,15 @@ $("#btnEndCall").click(() => {
 
     // Dừng stream cục bộ
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+      localStream.getTracks().forEach((track) => track.stop());
       localStream = null;
     }
-
+    removeInviteLink();
     // Xóa thông tin phòng hiện tại
     currentRoomId = "";
     userRoomsClient = {};
+    // window.location.href = "http://localhost:3000";
+    window.location.href = "./";
   }
 });
 
@@ -605,12 +764,29 @@ function callToPeer(peerId, stream) {
   }
 
   console.log("Gọi đến peer:", peerId);
-  const call = peer.call(peerId, stream);
+
+  // Sử dụng screenStream nếu đang chia sẻ, nếu không dùng stream mặc định
+  let callStream = isSharingScreen && screenStream ? screenStream : stream;
+
+  const call = peer.call(peerId, callStream);
+
+  // Lắng nghe sự kiện ICE candidate từ PeerJS
+  call.on("icecandidate", (event) => {
+    if (event.candidate) {
+      console.log("Gửi ICE candidate tới:", peerId, event.candidate);
+      socket.emit("RELAY_ICE", { peerId, candidate: event.candidate });
+    }
+  });
+
+  // SDP đã được gửi tự động qua PeerJS,có thể gửi thủ công nếu cần
+  // call.on("signal", (data) => {
+  //   console.log("Gửi SDP tới:", peerId, data);
+  //   socket.emit("RELAY_SDP", { peerId, sdp: data });
+  // });
 
   call.on("stream", (remoteStream) => {
     createRemoteVideo(peerId);
     playStream(`remoteStream-${peerId}`, remoteStream);
-
   });
 
   call.on("close", () => {
@@ -625,10 +801,11 @@ function callToPeer(peerId, stream) {
   peers[peerId] = call; // Lưu kết nối vào danh sách peers
 }
 
+// Hàm tạo video remote
 function createRemoteVideo(peerId) {
   if (document.getElementById(`remoteStream-${peerId}`)) return; // Tránh tạo trùng video
 
-  const user = userRoomsClient[currentRoomId]?.find(u => u.peerID === peerId);
+  const user = userRoomsClient[currentRoomId]?.find((u) => u.peerID === peerId);
   const username = user ? user.ten : `User ${peerId}`;
 
   const videoContainer = document.getElementById("remoteStreams");
@@ -673,18 +850,22 @@ function createRemoteVideo(peerId) {
 
   videoContainer.appendChild(wrapper);
 }
+
+//Hàm chuyển đổi trạnng thái
 function toggleFullScreen(peerId) {
   const video = document.getElementById(`remoteStream-${peerId}`);
-  const fullScreenBtn = document.querySelector(`#video-wrapper-${peerId} .fullscreen-btn`);
+  const fullScreenBtn = document.querySelector(
+    `#video-wrapper-${peerId} .fullscreen-btn`
+  );
   if (!video || !fullScreenBtn) return;
 
   if (!document.fullscreenElement) {
-    video.requestFullscreen().catch(err => {
+    video.requestFullscreen().catch((err) => {
       console.error("Lỗi khi vào chế độ toàn màn hình:", err);
     });
     fullScreenBtn.innerText = "Exit Full Screen";
   } else {
-    document.exitFullscreen().catch(err => {
+    document.exitFullscreen().catch((err) => {
       console.error("Lỗi khi thoát chế độ toàn màn hình:", err);
     });
     fullScreenBtn.innerText = "Full Screen";
@@ -695,7 +876,9 @@ function toggleFullScreen(peerId) {
 document.addEventListener("fullscreenchange", () => {
   const fullScreenBtn = document.querySelector(".fullscreen-btn");
   if (fullScreenBtn) {
-    fullScreenBtn.innerText = document.fullscreenElement ? "Exit Full Screen" : "Full Screen";
+    fullScreenBtn.innerText = document.fullscreenElement
+      ? "Exit Full Screen"
+      : "Full Screen";
   }
 });
 
@@ -707,111 +890,46 @@ function removeRemoteVideo(peerId) {
   }
 }
 
-
-
-
-function removeRemoteVideo(peerId) {
-  const videoWrapper = document.getElementById(`video-wrapper-${peerId}`);
-  if (videoWrapper) {
-    videoWrapper.remove();
-  }
-  delete zoomLevels[peerId]; // Xóa trạng thái zoom
-}
-// Listen for ICE candidates and SDPs
-socket.on("ICE_CANDIDATE", (candidate) => {
-  let peerId = "";
-  for (const key in peers) {
-    if (peers[key].peerConnection) {
-      peerId = key;
-    }
-  }
-  if (peers[peerId] && candidate) {
-    peers[peerId].peerConnection.addIceCandidate(candidate).catch((error) => {
-      console.error("Lỗi thêm ICE Candidate:", error);
-    });
-  }
-});
-
-socket.on("SESSION_DESCRIPTION", ({ sdp, peerId }) => {
-  if (peers[peerId]) {
-    peers[peerId].peerConnection.setRemoteDescription(
-      new RTCSessionDescription(sdp)
-    );
-  }
-});
-
-
+// Sự kiện click cho nút tham gia cuộc gọi
 $("#join-call").click(() => {
   if (!currentRoomId || !userRoomsClient[currentRoomId]) {
     return alert("Bạn cần tham gia một phòng trước!");
   }
 
-  // Đảm bảo localStream được khởi tạo lại nếu cần
-  if (!localStream) {
-    openStream().then((stream) => {
-      localStream = stream; // Gán lại localStream
-      // Duyệt qua danh sách người dùng trong phòng
-      userRoomsClient[currentRoomId].forEach((user) => {
-        if (user.peerID !== peer.id) { // Trừ chính mình
-          callToPeer(user.peerID, stream);
-        }
+  // Đảm bảo stream gửi đi phản ánh trạng thái hiện tại
+  const callStream =
+    isSharingScreen && screenStream ? screenStream : localStream;
+
+  if (!callStream) {
+    openStream()
+      .then((stream) => {
+        localStream = stream; // Gán lại localStream
+        playStream("localStream", localStream); // Cập nhật giao diện cục bộ
+        userRoomsClient[currentRoomId].forEach((user) => {
+          if (user.peerID !== peer.id) {
+            callToPeer(user.peerID, stream);
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("Lỗi khi mở stream:", error);
+        alert(
+          "Không thể truy cập camera/mic. Vui lòng kiểm tra quyền truy cập!"
+        );
       });
-    }).catch((error) => {
-      console.error("Lỗi khi mở stream:", error);
-      alert("Không thể truy cập camera/mic. Vui lòng kiểm tra quyền truy cập!");
-    });
   } else {
-    // Nếu localStream đã tồn tại, sử dụng nó
+    // Cập nhật giao diện cục bộ trước khi gọi
+    playStream("localStream", callStream);
     userRoomsClient[currentRoomId].forEach((user) => {
-      if (user.peerID !== peer.id) { // Trừ chính mình
-        callToPeer(user.peerID, localStream);
+      if (user.peerID !== peer.id) {
+        callToPeer(user.peerID, callStream);
       }
     });
   }
 });
 
+/*********************** Chia sẻ màn hình ************************/
 let isSharingScreen = false; // Biến theo dõi trạng thái chia sẻ màn hình
-
-// document.getElementById("shareScreen").addEventListener("click", async () => {
-//   try {
-//     const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-//     const videoTrack = screenStream.getVideoTracks()[0];
-//     isSharingScreen = true;
-
-//     // Thay thế video track trong tất cả kết nối
-//     Object.values(peers).forEach(call => {
-//       const sender = call.peerConnection.getSenders().find(s => s.track.kind === "video");
-//       if (sender) sender.replaceTrack(videoTrack);
-//     });
-
-//     // Hiển thị lên chính giao diện người chia sẻ
-//     playStream("localStream", screenStream);
-//     document.getElementById("localStream").style.border = "5px solid red"; // Đánh dấu chia sẻ
-
-//     // Khi dừng chia sẻ, tự động quay lại camera
-//     videoTrack.onended = async () => {
-//       isSharingScreen = false; // Cập nhật trạng thái
-//       const camStream = await openStream();
-//       const camTrack = camStream.getVideoTracks()[0];
-
-//       Object.values(peers).forEach(call => {
-//         const sender = call.peerConnection.getSenders().find(s => s.track.kind === "video");
-//         if (sender) sender.replaceTrack(camTrack);
-//       });
-
-//       playStream("localStream", camStream);
-//       document.getElementById("localStream").style.border = "none"; // Xóa viền đỏ
-//     };
-
-//     // Gửi sự kiện thông báo tới server
-//     socket.emit("SHARE_SCREEN", { peerID: peer.id, isSharing: true });
-
-//   } catch (err) {
-//     console.error("Lỗi chia sẻ màn hình:", err);
-//   }
-// });
-
-
 const shareButton = document.getElementById("shareScreen");
 let currentScreenTrack = null; // Lưu track màn hình để kiểm soát
 
@@ -825,96 +943,109 @@ shareButton.addEventListener("click", async () => {
 
 async function startScreenShare() {
   try {
-    if (isSharingScreen) return; // Ngăn gọi lại nếu đã chia sẻ màn hình
+    if (isSharingScreen) return;
 
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const videoTrack = screenStream.getVideoTracks()[0];
-    
+    const screenStreamTemp = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+    });
+    const videoTrack = screenStreamTemp.getVideoTracks()[0];
+
     isSharingScreen = true;
-    currentScreenTrack = videoTrack; // Lưu lại track màn hình
+    screenStream = screenStreamTemp; // Lưu stream màn hình
+    currentScreenTrack = videoTrack;
 
-    Object.values(peers).forEach(call => {
-      const sender = call.peerConnection.getSenders().find(s => s.track.kind === "video");
+    // Thay track cho các peer hiện tại
+    Object.values(peers).forEach((call) => {
+      const sender = call.peerConnection
+        .getSenders()
+        .find((s) => s.track.kind === "video");
       if (sender) sender.replaceTrack(videoTrack);
     });
 
-    playStream("localStream", screenStream);
+    // Cập nhật localStream
+    if (localStream) {
+      const oldVideoTrack = localStream.getVideoTracks()[0];
+      if (oldVideoTrack) {
+        localStream.removeTrack(oldVideoTrack);
+        oldVideoTrack.stop();
+      }
+      localStream.addTrack(videoTrack);
+    } else {
+      localStream = screenStreamTemp;
+    }
+
+    playStream("localStream", localStream); // Cập nhật giao diện cục bộ
     document.getElementById("localStream").style.border = "5px solid red";
     shareButton.textContent = "Dừng chia sẻ";
 
-    // Khi dừng chia sẻ từ trình duyệt, chỉ gọi stopScreenShare() một lần
     videoTrack.onended = () => {
       if (isSharingScreen) stopScreenShare();
     };
 
     socket.emit("SHARE_SCREEN", { peerID: peer.id, isSharing: true });
-
   } catch (err) {
     console.error("Lỗi chia sẻ màn hình:", err);
+    isSharingScreen = false; // Đặt lại trạng thái nếu lỗi
+    screenStream = null;
   }
 }
 
 async function stopScreenShare() {
-  if (!isSharingScreen) return; // Ngăn gọi lại nếu đã dừng
-
+  if (!isSharingScreen) return;
   isSharingScreen = false;
 
-  // Dừng track màn hình để tránh lỗi "stream vẫn đang hoạt động"
   if (currentScreenTrack) {
     currentScreenTrack.stop();
     currentScreenTrack = null;
+  }
+  screenStream = null;
+
+  // Dừng track video cũ trong localStream nếu có
+  if (localStream) {
+    const oldVideoTrack = localStream.getVideoTracks()[0];
+    if (oldVideoTrack) {
+      localStream.removeTrack(oldVideoTrack);
+      oldVideoTrack.stop();
+    }
   }
 
   const camStream = await openStream();
   const camTrack = camStream.getVideoTracks()[0];
 
-  Object.values(peers).forEach(call => {
-    const sender = call.peerConnection.getSenders().find(s => s.track.kind === "video");
+  // Thay track cho các peer hiện tại
+  Object.values(peers).forEach((call) => {
+    const sender = call.peerConnection
+      .getSenders()
+      .find((s) => s.track.kind === "video");
     if (sender) sender.replaceTrack(camTrack);
   });
 
-  playStream("localStream", camStream);
+  // Cập nhật lại localStream
+  localStream = camStream;
+
+  playStream("localStream", localStream); // Cập nhật giao diện cục bộ
   document.getElementById("localStream").style.border = "none";
   shareButton.textContent = "Chia sẻ màn hình";
 
   socket.emit("SHARE_SCREEN", { peerID: peer.id, isSharing: false });
 }
 
-
-
-socket.on("UPDATE_SHARE_SCREEN", ({ peerID, isSharing }) => {
-  const videoElement = document.getElementById(`remoteStream-${peerID}`);
-  if (videoElement) {
-    videoElement.style.border = isSharing ? "5px solid red" : "none";
-  }
-});
-
-socket.on("UPDATE_CAMERA_STATUS", ({ peerID, isEnabled }) => {
-  const videoElement = document.getElementById(`remoteStream-${peerID}`);
-  if (videoElement) {
-    if (!isEnabled) {
-      // Khi camera tắt, không cần làm tối, vì stream đã được thay bằng canvas trống
-      videoElement.style.filter = "none"; // Xóa hiệu ứng làm tối
-    } else {
-      videoElement.style.filter = "brightness(1)"; // Khôi phục giao diện bình thường
-    }
-  }
-});
-
-
+/*********************** End chia sẻ màn hình ************************/
+// Hiển thị tên khi di chuột vào
 function showUsername(event) {
   const video = event.target;
   const wrapper = video.parentElement;
   const nameTag = wrapper.querySelector(".video-username");
-  nameTag.style.opacity = "1"; // Hiển thị tên khi di chuột vào
+  nameTag.style.opacity = "1";
 }
-
+// Ẩn tên khi rời chuột
 function hideUsername(event) {
   const video = event.target;
   const wrapper = video.parentElement;
   const nameTag = wrapper.querySelector(".video-username");
-  nameTag.style.opacity = "0"; // Ẩn tên khi rời chuột
+  nameTag.style.opacity = "0";
 }
+/******************************** Chat *****************************/
 
 document.getElementById("send-chat").addEventListener("click", sendMessage);
 document.getElementById("chat-input").addEventListener("keypress", (e) => {
@@ -928,32 +1059,19 @@ function sendMessage() {
   const username = $("#txtUsername").val() || "Guest";
   const time = new Date().toLocaleTimeString();
 
-  console.log("📤 Sending message:", { roomId: currentRoomId, message, username, time });
+  console.log("📤 Sending message:", {
+    roomId: currentRoomId,
+    message,
+    username,
+    time,
+  });
 
-  socket.emit("SEND_MESSAGE", { roomId: currentRoomId, message, username, time });
+  socket.emit("SEND_MESSAGE", {
+    roomId: currentRoomId,
+    message,
+    username,
+    time,
+  });
 
   document.getElementById("chat-input").value = "";
 }
-
-
-socket.on("NEW_MESSAGE", ({ username, message, time }) => {
-  console.log("📥 New message received:", { username, message, time });
-
-  const chatBox = document.getElementById("chat-box");
-  const isSelf = username === $("#txtUsername").val();
-  
-  const messageHTML = `
-    <div class="message ${isSelf ? 'right' : 'left'}">
-      <img src="https://cellphones.com.vn/sforum/wp-content/uploads/2024/02/avatar-anh-meo-cute-13.jpg" class="avatar">
-      <div class="message-content">
-        <p class="message-username">${username}</p>
-       <p class="message-time">${time}</p>
-      
-        <p class="message-text">${message}</p>
-      </div>
-    </div>`;
-
-  chatBox.innerHTML += messageHTML;
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
-
