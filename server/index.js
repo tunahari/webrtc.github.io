@@ -211,28 +211,3 @@ io.on("connection", (socket) => {
       });
       
 });
-/** Turn Xisys */
-// const https = require("https");
-// app.get("/getIceServers", (req, res) => {
-//     let options = {
-//         host: "global.xirsys.net",
-//         path: "/_turn/MyFirstApp",
-//         method: "PUT",
-//         headers: {
-//             "Authorization": "Basic " + Buffer.from("Tuanhai:a7d354ba-fd3b-11ef-86ae-0242ac150006").toString("base64"),
-//             "Content-Type": "application/json"
-//         }
-//     };
-
-//     let httpreq = https.request(options, function (httpres) {
-//         let str = "";
-//         httpres.on("data", (data) => { str += data; });
-//         httpres.on("error", (e) => { console.log("Lỗi lấy ICE Servers:", e); });
-//         httpres.on("end", () => {
-//             res.send(str);
-//         });
-//     });
-
-//     httpreq.on("error", (e) => { console.log("Request lỗi:", e); });
-//     httpreq.end();
-// });

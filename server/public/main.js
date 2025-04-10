@@ -1,5 +1,4 @@
 const socket = io("http://localhost:3000"); // comment khi deploy local
-// const socket = io("https://3000-tunahari-webrtcgithubio-5y4u2ynx3zf.ws-us118.gitpod.io/"); // comment khi deploy
 document.getElementById("txtRoomId").value = randomString(15);
 let currentRoomId = ""; // Biến để lưu RoomID hiện tại
 let userRoomsClient = {};
@@ -8,19 +7,6 @@ let localStream;
 const peers = {}; // { peerId: RTCPeerConnection, ... }
 const statusElement = document.querySelector(".status");
 let screenStream = null;
-
-/* Lấy ICE servers trên server turn của xisys */
-// async function getIceServers() {
-//   try {
-//     const response = await fetch("http://localhost:3000/getIceServers"); // comment khi deploy
-//     // const response = await fetch("https://3000-tunahari-webrtcgithubio-5y4u2ynx3zf.ws-us118.gitpod.io/getIceServers"); // comment khi chạy local
-//     const data = await response.json();
-//     return data.v.iceServers;
-//   } catch (error) {
-//     console.error("Lỗi lấy ICE servers:", error);
-//     return [{ urls: "stun:stun.l.google.com:19302" }]; // Hệ thống STUN Dự phòng
-//   }
-// }
 
 /* Lấy ICE servers trên server tự turn */
 async function getIceServers() {
@@ -466,20 +452,6 @@ function toggleMic() {
   }
 }
 
-// function toggleCamera() {
-//   if (localStream) {
-//     let videoTracks = localStream.getVideoTracks();
-//     videoTracks.forEach((track) => (track.enabled = !track.enabled));
-//     document.getElementById("toggleCam").innerText = videoTracks[0].enabled
-//       ? "Tắt Camera"
-//       : "Bật Camera";
-//     console.log(
-//       `Camera ${
-//         videoTracks[0].enabled ? "enabled (Đã Bật)" : "disabled (Đã Tắt)"
-//       }`
-//     );
-//   }
-// }
 
 let isCameraOn = true; // Biến để theo dõi trạng thái camera
 
