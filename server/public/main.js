@@ -9,21 +9,36 @@ const statusElement = document.querySelector(".status");
 let screenStream = null;
 
 /* Lấy ICE servers trên server tự turn */
+// async function getIceServers() {
+//   try {
+//     console.log("Bắt đầu lấy ICE servers...");
+
+//     const iceServers = [
+//       {
+//         urls: "stun:172.18.254.133:3478",
+//       },
+//       {
+//         urls: "turn:172.18.254.133:3478",
+//         username: "turnuser",
+//         credential: "turnpassword",
+//       },
+//     ];
+
+//     console.log("ICE servers được lấy thành công:", iceServers);
+//     return iceServers;
+//   } catch (error) {
+//     console.error("Lỗi khi lấy ICE servers:", error);
+//     const fallbackIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+//     console.log("Trả về ICE servers dự phòng:", fallbackIceServers);
+//     return fallbackIceServers;
+//   }
+// }
 async function getIceServers() {
   try {
-    console.log("Bắt đầu lấy ICE servers...");
-
-    const iceServers = [
-      {
-        urls: "stun:172.18.254.133:3478",
-      },
-      {
-        urls: "turn:172.18.254.133:3478",
-        username: "turnuser",
-        credential: "turnpassword",
-      },
-    ];
-
+    console.log("Bắt đầu lấy ICE servers từ server...");
+    // Gọi API để lấy thông tin ICE servers
+    const response = await fetch('http://localhost:3000/ice-servers');
+    const iceServers = await response.json();
     console.log("ICE servers được lấy thành công:", iceServers);
     return iceServers;
   } catch (error) {

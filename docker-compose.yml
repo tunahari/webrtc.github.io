@@ -5,13 +5,15 @@ services:
       dockerfile: Dockerfile
     container_name: coturn
     ports:
-      - "3478:3478/tcp"
-      - "3478:3478/udp"
+      - "${TURN_PORT}:${TURN_PORT}/tcp"
+      - "${TURN_PORT}:${TURN_PORT}/udp"
     networks:
       - webrtc-network
     volumes:
       - ./coturn/turnserver.log:/var/log/turnserver.log
     restart: unless-stopped
+    env_file:
+      - .env
 
   server:
     build:
@@ -19,12 +21,14 @@ services:
       dockerfile: Dockerfile
     container_name: server
     ports:
-      - "3000:3000"
+      - "${SERVER_PORT}:${SERVER_PORT}"
     networks:
       - webrtc-network
     depends_on:
       - coturn
     restart: unless-stopped
+    env_file:
+      - .env  # Thêm dòng này để server đọc file .env
 
 networks:
   webrtc-network:

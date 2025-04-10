@@ -14,9 +14,27 @@ const io = require("socket.io")(http, {
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Endpoint để trả về thông tin ICE servers
+app.get('/ice-servers', (req, res) => {
+    const turnPort = process.env.TURN_PORT ;
+    const iceServers = [
+        {
+            urls: `stun:${process.env.EXTERNAL_IP}:3478`,
+        },
+        {
+            urls: `turn:${process.env.EXTERNAL_IP}:3478`,
+            username: process.env.TURN_USER ,
+            credential: process.env.TURN_PASSWORD ,
+        },
+    ];
+    res.json(iceServers);
+});
+
+
 app.get('/join', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
+
 
 http.listen(port, () => {
     console.log(`Server Socket.IO đang chạy trên cổng ${port}`);
