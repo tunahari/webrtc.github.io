@@ -16,9 +16,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Endpoint để trả về thông tin ICE servers
 app.get('/ice-servers', (req, res) => {
+    if (process.env.EXTERNAL_IP === undefined || process.env.TURN_USER === undefined || process.env.TURN_PASSWORD === undefined) {
+        res.status(500).json({ error: 'Missing TURN credentials' });
+        return;
+    }
     const turnPort = process.env.TURN_PORT ;
     const iceServers = [
-        {
+        
+        {urls: 'stun:stun.l.google.com:19302',
             urls: `stun:${process.env.EXTERNAL_IP}:3478`,
         },
         {

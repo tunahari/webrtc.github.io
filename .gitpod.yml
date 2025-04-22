@@ -1,7 +1,0 @@
-tasks:
-  # init: cd server && npm install
-  - command: node server/index.js
-    openMode: split-right
-ports:
-  - port: 3000
-    onOpen: open-preview

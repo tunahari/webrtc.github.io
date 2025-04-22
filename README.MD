@@ -1,10 +1,11 @@
 # 📡 Hướng dẫn chạy test WebRTC local với Docker + Coturn
-
+## file `.env` là file bảo mật thông tin, hãy thêm vào `.gitignore` nếu có commit
+---------------------------------------------
 ## ⚙️ Yêu cầu
 - Cài đặt [Node.js](https://nodejs.org/)
 - Chạy `npm install` trong thư mục `server/`
 
----
+---------------------------------------------
 
 ## 🧪 Bước 1: Tìm IP nội bộ (IP dùng để cấu hình TURN server)
 
@@ -53,9 +54,9 @@ Nếu thành công, terminal sẽ báo:
 
 Nhập thông tin:
 
-STUN or TURN URI: turn:<IP nội bộ>:<TURN_PORT>
-TURN username: <TURN_USER>
-TURN password: <TURN_PASSWORD>
+- STUN or TURN URI: turn:`<IP nội bộ>`:`<TURN_PORT>` vd: `turn:127.0.0.1:3478`
+- TURN username: `<TURN_USER>` vd: `turnuser`
+- TURN password: `<TURN_PASSWORD>` vd: `turnpassword`
 
 👉 Thông tin này lấy trong `.env`
 
@@ -70,7 +71,7 @@ TURN password: <TURN_PASSWORD>
 - Mở `public/index.html` trong trình duyệt và hiển thị `Kết nối đến máy chủ thành công!`
 - Mở DevTools (F12) → tab Console  →  `ICE servers được lấy thành công:`
 - Kiểm tra xem ICE server trả về đúng TURN chưa
-- Nếu trả về turn dự phòng thì phải xem lại cấu hình turn.
+- Nếu trả về TURN dự phòng thì phải xem lại cấu hình TURN.
 
 ---------------------------------------------
 
@@ -86,15 +87,15 @@ Ví dụ:  My Public IPv4: 104.28.160.165
 
 ## 🛠️ Bước 2: Sửa file `.env`
 
-Thay thế toàn bộ EXTERNAL_IP, RELAY_IP và ALLOWED_PEER_IP bằng Public IPv4 vừa tìm được
+Thay thế toàn bộ `EXTERNAL_IP`, `RELAY_IP` và `ALLOWED_PEER_IP` bằng Public IPv4 vừa tìm được
 ```conf (ví dụ)
 EXTERNAL_IP=104.28.160.165
 RELAY_IP=104.28.160.165
 ALLOWED_PEER_IP=104.28.160.165
 ```
 
-> ⚠️ Đây là IP Public thật từ VPS
-> ⚠️ VPS thường sẽ mở tất cả các cổng nên không cần thay đổi `SERVER_PORT` `SERVER_PORT` trong .env
+- ⚠️ Đây là IP Public thật từ VPS
+- ⚠️ VPS thường sẽ mở tất cả các cổng nên không cần thay đổi `SERVER_PORT`, `SERVER_PORT` trong .env
 ---------------------------------------------
 
 ## Bước 3: 🚀 Các bước còn lại:

@@ -3,8 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Elass WebRTC Call</title>
+    <title>Elass WebRTC Call </title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://cdn-icons-png.flaticon.com/512/3249/3249934.png"
+    />
+
     <link rel="stylesheet" href="style.css" />
+    <!-- Thêm Material Icons -->
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
     <script src="jquery.js"></script>
     <script src="socket.io.js"></script>
     <script src="peerjs.min.js"></script>
@@ -12,61 +23,215 @@
 
   <body>
     <div id="div-signup">
-      <h3>Đăng ký</h3>
-      <input type="text" id="txtUsername" placeholder="Nhập username" />
-      <input type="text" id="txtRoomId" placeholder="Nhập RoomID" />
-      <br />
-      <button id="btnJoinRoom">Tham gia phòng</button><br />
-      <br />
-      <hr />
-      <br />
-      <div class="status">Đang kết nối đến server...</div>
+      <!-- BÊN TRÁI -->
+      <div class="left-panel">
+        <div id="clock">Loading Time...</div>
+        <div class="status">Đang kết nối đến server...</div>
+        <h1 class="title">
+          Tính năng họp và gọi video<br />dành cho tất cả mọi người
+        </h1>
+        <p class="subtitle">
+          Kết nối, cộng tác và ăn mừng ở mọi nơi với<br />Eclass WebRTC
+        </p>
+        <div class="form">
+          <input type="text" id="txtUsername" placeholder="Tên của bạn" />
+          <input type="text" id="txtRoomId" placeholder="Mã phòng họp" />
+          <button id="btnJoinRoom">Tham gia</button>
+        </div>
+        <hr />
+        <br />
+        <a href="https://www.facebook.com/hai.tuan.f11/" target="_blank" class="learn-more">Tìm hiểu thêm về Eclass WebRTC 🔗</a>
+      </div>
+
+      <!-- BÊN PHẢI -->
+      <div class="right-panel">
+        <img
+          class="left-image"
+          src="https://www.gstatic.com/subscriptions/img/g1_slap_meet_illustration_2f0a3ca1183c3653a1f45425ff27a18b.svg"
+          alt="Giới thiệu Google Meet"
+          class="right-image"
+        />
+      </div>
+      
     </div>
 
     <div id="div-chat">
-      <div id="my-peer">Your ID: </div>
-      <hr />
-      <div id="user-info"></div>
-      <div id="room-info"></div>
-
-      <div class="list-users-ol">
-        Danh sách người dùng online:
-        <button id="join-call">Tham gia cuộc gọi</button>
-
-        <br />
-        <ul id="ulUser"></ul>
+      <div class="div-call-a-peer">
+        <input
+          type="text"
+          id="remoteID"
+          placeholder="Nhập id người dùng khác"
+        />
+        <button style="background-color: rgb(16, 159, 16)" id="btnCall">
+          <span class="material-icons" title="Call"> call </span>
+        </button>
       </div>
-
-      <input type="text" id="remoteID" placeholder="Nhập id người dùng khác" />
-
-      <button id="btnCall">Gọi</button>
-      <br />
-      <button id="btnEndCall">Kết thúc cuộc gọi</button>
-      <br />
+      <hr />
 
       <div id="remoteStreams">
         <video id="localStream" autoplay playsinline></video>
       </div>
-      <button id="toggleMic">Tắt Mic</button>
-      <button id="toggleCam">Tắt Camera</button>
-      <button id="muteButton">Tắt Âm Thanh</button>
-      <button id="shareScreen">Chia sẻ màn hình</button>
 
+      <div class="controls">
+        <button id="toggleMic">
+          <span class="material-icons" title="On/Off Mic">mic</span>
+        </button>
+        <button id="toggleCam">
+          <span class="material-icons" title="On/Off Camera">videocam</span>
+        </button>
+        <button id="muteButton">
+          <span class="material-icons">volume_up</span>
+        </button>
+        <button id="shareScreen">
+          <span class="material-icons">screen_share</span>
+        </button>
+        <button id="btnEndCall">
+          <span class="material-icons" title="End Call">call_end</span>
+        </button>
+      </div>
 
-
-
+      <!-- Khung chat (chỉ chứa phần hiển thị tin nhắn) -->
       <div id="chat-container">
+        <div id="chat-messages">Tin nhắn Trong nhóm</div>
+        <hr />
+        <span class="close-popup">×</span>
         <div id="chat-box"></div>
-        <div id="chat-input-container">
+      </div>
+
+      <!-- Ô nhập tin nhắn và các nút điều khiển -->
+      <div id="chat-input-container">
+        <div>
           <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." />
-          <button id="send-chat">➤</button>
+          <button id="send-chat">
+            <span class="material-icons" title="Gửi">send</span>
+          </button>
+        </div>
+        <div class="chat-controls">
+          <button id="join-call" title="Join Call">Tham gia cuộc gọi</button>
+          <button id="toggle-chat">
+            <span class="material-icons" title="Chat">chat</span>
+          </button>
+          <button id="toggle-room-info">
+            <span class="material-icons" title="Info">info</span>
+          </button>
+          <button id="toggle-users">
+            <span class="material-icons" title="Members Online">people</span>
+          </button>
         </div>
       </div>
-      
-      
 
+      <!-- Popup thông tin phòng -->
+      <div id="room-info-popup" class="popup">
+        <div class="popup-content">
+          <span class="close-popup">×</span>
+          <h3>Thông tin phòng</h3>
+          <!-- <p id="room-name">Tên phòng: [Tên phòng]</p>
+          <p id="room-code">Mã phòng: [Mã phòng]</p>
+           -->
+          <div id="my-peer">My ID:</div>
+          <hr />
+          <!-- <div id="user-info"></div> -->
+          <div id="room-info"></div>
+          <button
+            onclick="copyInviteLink()"
+            style="
+              width: 100%;
+              padding: 5px 10px;
+              background-color: #007bff;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+            "
+          >
+            Coppy URL Meeting Room
+          </button>
+        </div>
+      </div>
+
+      <!-- Popup danh sách thành viên -->
+      <div id="users-popup" class="popup">
+        <div class="popup-content">
+          <span class="close-popup">×</span>
+          <h3>Danh sách thành viên</h3>
+          <div id="user-info"></div>
+          <ul id="ulUser"></ul>
+        </div>
+      </div>
     </div>
 
     <script src="main.js"></script>
   </body>
 </html>
+<script>
+  function updateClock() {
+    const now = new Date();
+
+    const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    const weekday = weekdays[now.getDay()];
+
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    const formattedTime = `⏰${weekday}, ${day}/${month}/${year}; ${hours}:${minutes}:${seconds}`;
+    document.getElementById('clock').textContent = formattedTime;
+  }
+
+  setInterval(updateClock, 1000);
+  updateClock();
+</script>
+<script>
+  
+  // Xử lý sự kiện bật/tắt popup
+  document.addEventListener("DOMContentLoaded", () => {
+    // Các phần tử DOM
+    const chatContainer = document.getElementById("chat-container");
+    const toggleChatBtn = document.getElementById("toggle-chat");
+    const toggleRoomInfoBtn = document.getElementById("toggle-room-info");
+    const toggleUsersBtn = document.getElementById("toggle-users");
+    const roomInfoPopup = document.getElementById("room-info-popup");
+    const usersPopup = document.getElementById("users-popup");
+    const closePopups = document.querySelectorAll(".close-popup");
+
+    // 1. Xử lý nút mở/đóng khung chat
+    toggleChatBtn.addEventListener("click", () => {
+      const isOpen = chatContainer.style.display === "flex";
+      chatContainer.style.display = isOpen ? "none" : "flex";
+      // Đóng các popup khác
+      roomInfoPopup.style.display = "none";
+      usersPopup.style.display = "none";
+    });
+
+    // 2. Xử lý nút mở/đóng popup thông tin phòng
+    toggleRoomInfoBtn.addEventListener("click", () => {
+      const isOpen = roomInfoPopup.style.display === "block";
+      roomInfoPopup.style.display = isOpen ? "none" : "block";
+      // Đóng các popup khác
+      chatContainer.style.display = "none";
+      usersPopup.style.display = "none";
+    });
+
+    // 3. Xử lý nút mở/đóng popup danh sách thành viên
+    toggleUsersBtn.addEventListener("click", () => {
+      const isOpen = usersPopup.style.display === "block";
+      usersPopup.style.display = isOpen ? "none" : "block";
+      // Đóng các popup khác
+      chatContainer.style.display = "none";
+      roomInfoPopup.style.display = "none";
+    });
+
+    // 4. Xử lý nút đóng popup
+    closePopups.forEach((closeBtn) => {
+      closeBtn.addEventListener("click", () => {
+        roomInfoPopup.style.display = "none";
+        usersPopup.style.display = "none";
+        chatContainer.style.display = "none";
+      });
+    });
+  });
+</script>
